@@ -1,7 +1,82 @@
 @import 'tailwindcss';
 
+/* Greek characters in UI prose come from Gentium Plus even when the system
+   sans-serif lacks polytonic coverage; Latin script stays in the system font. */
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-400-normal.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-ext-400-normal.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+1F00-1FFF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-400-italic.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-ext-400-italic.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+1F00-1FFF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-700-normal.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-ext-700-normal.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+1F00-1FFF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-700-italic.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Imitatio Greek';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/gentium-plus/files/gentium-plus-greek-ext-700-italic.woff2') format('woff2');
+  size-adjust: 115%;
+  unicode-range: U+1F00-1FFF;
+}
+
 @theme {
-  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Imitatio Greek', ui-sans-serif, system-ui, sans-serif;
   /* Gentium Plus is bundled locally (§5.2) for full polytonic coverage offline. */
   --font-classical: 'Gentium Plus', 'Times New Roman', serif;
 
@@ -10,6 +85,16 @@
   --color-muted: #6b665d;
   --color-rule: #e4dfd4;
   --color-accent: #8a3b12;
+
+  /* One colour per skeleton unit, shared by the Skeleton strip and (M4) the
+     generation mapping. */
+  --color-unit-1: #2f6f9f;
+  --color-unit-2: #a0522d;
+  --color-unit-3: #4f7d3a;
+  --color-unit-4: #7a4f9a;
+  --color-unit-5: #9a7a1f;
+  --color-unit-6: #2f8a86;
+  --color-highlight: #f3dca8;
 }
 
 @layer base {
@@ -26,6 +111,13 @@
       --color-muted: #a39d90;
       --color-rule: #332f27;
       --color-accent: #e08b5c;
+      --color-unit-1: #7fb5de;
+      --color-unit-2: #e59a6f;
+      --color-unit-3: #9cc987;
+      --color-unit-4: #c3a0e0;
+      --color-unit-5: #e0c46a;
+      --color-unit-6: #72cdc8;
+      --color-highlight: #5a4718;
     }
   }
   :focus-visible {

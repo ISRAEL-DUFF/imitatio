@@ -14,6 +14,7 @@ export interface TaskRequest {
   /** Request JSON mode; sent only if the chosen model supports it. */
   json?: boolean;
   signal?: AbortSignal;
+  timeoutMs?: number;
   /** Override the model from Settings, e.g. to test an unsaved choice. */
   model?: string;
 }
@@ -36,7 +37,7 @@ export async function completeTask(task: ModelTask, req: TaskRequest): Promise<C
       json: req.json && supportsJson(catalog, model),
       signal: req.signal,
     },
-    { apiKey },
+    { apiKey, timeoutMs: req.timeoutMs },
   );
 }
 
