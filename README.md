@@ -41,8 +41,8 @@ tests/
 | Milestone | State |
 |---|---|
 | M0 Scaffold | Done |
-| M1 Settings and LLM client | Next |
-| M2 Analyse | |
+| M1 Settings and LLM client | Done; live call with a real key still to confirm |
+| M2 Analyse | Next |
 | M3 Notebook | |
 | M4 Generate | |
 | M5 Input and polish | |

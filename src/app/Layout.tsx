@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router';
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
+import { useApiKey, usePreferences } from '@/lib/db/settings';
 
 const NAV = [
   { to: '/', label: 'Notebook', end: true },
@@ -7,6 +8,15 @@ const NAV = [
 ];
 
 export function Layout() {
+  const prefs = usePreferences();
+  const key = useApiKey();
+  const { pathname } = useLocation();
+
+  // First launch with no key opens the onboarding panel in Settings (§9.1).
+  if (prefs && !prefs.onboarded && key?.source === 'none' && pathname !== '/settings') {
+    return <Navigate to="/settings" replace />;
+  }
+
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="border-b border-rule">
