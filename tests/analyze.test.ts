@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { analyze, AnalysisFormatError, extractJson, parseAnalysis } from '../src/lib/llm/analyze.ts';
+import { analyze, AnalysisFormatError, extractJson, parseAnalysis, parseSkeletonJson } from '../src/lib/llm/analyze.ts';
+import { EXAMPLE_SKELETON } from '../src/lib/llm/example.ts';
 import type { TaskRequest } from '../src/lib/llm/index.ts';
 import type { CompletionResult } from '../src/lib/llm/openrouter.ts';
 import { analysisSystemPrompt, analysisUserPrompt } from '../src/lib/llm/prompts.ts';
@@ -131,5 +132,38 @@ describe('prompts', () => {
     assert.match(p, /^Source: Xenophon, Anabasis 1\.1\.1$/m);
     assert.match(p, /^Include token table: yes$/m);
     assert.match(analysisUserPrompt({ ...INPUT, level: 'paragraph', source: undefined }), /token table: no[\s\S]*Source: not given|Source: not given[\s\S]*token table: no/);
+  });
+});
+
+describe('parseSkeletonJson (the JSON editor)', () => {
+  const base = { language: 'grc' as const, level: 'sentence' as const, variety: 'attic' as const };
+
+  test('a valid edit is accepted; app-owned fields are kept from the entry', () => {
+    const edited = { ...structuredClone(EXAMPLE_SKELETON), summary: 'Edited', language: 'la', level: 'paragraph', schemaVersion: 9 };
+    const r = parseSkeletonJson(JSON.stringify(edited), base);
+    assert.ok(r.ok, r.ok ? '' : r.errors);
+    assert.equal(r.skeleton.summary, 'Edited');
+    assert.equal(r.skeleton.language, 'grc');
+    assert.equal(r.skeleton.level, 'sentence');
+    assert.equal(r.skeleton.schemaVersion, 1);
+  });
+
+  test('invalid JSON and schema violations are rejected with messages', () => {
+    const bad = parseSkeletonJson('{ "summary": ', base);
+    assert.equal(bad.ok, false);
+    assert.match(bad.ok ? '' : bad.errors, /Not valid JSON/);
+    const s = structuredClone(EXAMPLE_SKELETON) as Record<string, unknown>;
+    (s.units as { role: string }[])[0].role = 'boss';
+    const wrong = parseSkeletonJson(JSON.stringify(s), base);
+    assert.equal(wrong.ok, false);
+    assert.match(wrong.ok ? '' : wrong.errors, /role/);
+  });
+
+  test('quoted text is normalised as on analysis', () => {
+    const s = structuredClone(EXAMPLE_SKELETON) as unknown as { units: { slots: { exampleText: string }[] }[] };
+    s.units[0].slots[1].exampleText = 'γίγνονται'.normalize('NFD');
+    const r = parseSkeletonJson(JSON.stringify(s), base);
+    assert.ok(r.ok);
+    assert.equal(r.skeleton.units[0].slots[1].exampleText, 'γίγνονται');
   });
 });

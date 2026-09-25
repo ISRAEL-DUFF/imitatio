@@ -77,3 +77,19 @@ export function words(text: string): WordSpan[] {
 export function wordCount(text: string): number {
   return words(text).length;
 }
+
+/**
+ * One fold for notebook search across mixed Greek, Latin and English text:
+ * accents, breathings, macrons and case dropped, ς→σ, v→u, j→i. Applied the
+ * same way to the query and the index, so it works whatever the language.
+ */
+export function searchFold(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/ς/g, 'σ')
+    .replace(/v/g, 'u')
+    .replace(/j/g, 'i')
+    .replace(/\s+/g, ' ');
+}

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { PatternSkeleton, PatternUnit, VerbConstraint } from '@/types';
 import { Chip, unitColor } from '@/components/badges';
-import { Button } from '@/components/ui';
+import { Button, inputClass } from '@/components/ui';
+import { parseSkeletonJson } from '@/lib/llm/analyze';
 import { labelFor } from '@/lib/llm/vocab';
 
 const words = (s: string) => s.replace(/_/g, ' ');
@@ -101,7 +102,64 @@ function List({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-export function SkeletonTab({ skeleton, onFocus }: { skeleton: PatternSkeleton; onFocus: (quotes: string[]) => void }) {
+/** Raw skeleton JSON, validated against the schema before it is saved (§9.3). */
+function JsonEditor({ skeleton, onSave }: { skeleton: PatternSkeleton; onSave: (s: PatternSkeleton) => Promise<void> }) {
+  const original = JSON.stringify(skeleton, null, 2);
+  const [text, setText] = useState(original);
+  const [errors, setErrors] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    const parsed = parseSkeletonJson(text, skeleton);
+    if (!parsed.ok) return setErrors(parsed.errors);
+    setErrors(null);
+    await onSave(parsed.skeleton);
+    setSaved(true);
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      <textarea
+        aria-label="Skeleton JSON"
+        spellCheck={false}
+        rows={20}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setSaved(false);
+        }}
+        className={`${inputClass} font-mono text-xs`}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" onClick={() => void save()} disabled={text === original}>
+          Validate and save
+        </Button>
+        <Button onClick={() => { setText(original); setErrors(null); }} disabled={text === original}>
+          Revert
+        </Button>
+        <span className="text-xs text-muted" aria-live="polite">
+          {saved ? 'Saved.' : 'schemaVersion, language and level are kept as they are.'}
+        </span>
+      </div>
+      {errors && (
+        <div role="alert" className="rounded-md border border-accent/60 bg-accent/5 p-3 text-xs">
+          <p className="font-medium">Not saved: the JSON does not match the skeleton schema.</p>
+          <pre className="mt-1 whitespace-pre-wrap">{errors}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SkeletonTab({
+  skeleton,
+  onFocus,
+  onSave,
+}: {
+  skeleton: PatternSkeleton;
+  onFocus: (quotes: string[]) => void;
+  onSave?: (s: PatternSkeleton) => Promise<void>;
+}) {
   const [json, setJson] = useState(false);
   const unitIndex = (id: string) => skeleton.units.findIndex((u) => u.id === id);
   const unitRef = (id: string) => (
@@ -172,11 +230,11 @@ export function SkeletonTab({ skeleton, onFocus }: { skeleton: PatternSkeleton; 
         <Button variant="quiet" onClick={() => setJson((j) => !j)} aria-expanded={json}>
           {json ? 'Hide JSON' : 'View JSON'}
         </Button>
-        {json && (
+        {json && (onSave ? <JsonEditor skeleton={skeleton} onSave={onSave} /> : (
           <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-rule/40 p-3 text-xs">
             {JSON.stringify(skeleton, null, 2)}
           </pre>
-        )}
+        ))}
       </div>
     </div>
   );

@@ -1,11 +1,17 @@
-import { Link, useParams } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Link, useNavigate, useParams } from 'react-router';
 import { PageStub } from '@/components/PageStub';
-import { useEntry } from '@/lib/db/entries';
+import { Button } from '@/components/ui';
+import { db } from '@/lib/db/db';
+import { deleteEntry, updateEntry, useEntry } from '@/lib/db/entries';
 import { PatternCard } from './PatternCard';
 
 export function EntryPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const data = useEntry(id);
+  // Every tag in the notebook, straight from the multi-entry index.
+  const allTags = useLiveQuery(async () => (await db.entries.orderBy('tags').uniqueKeys()).map(String), []);
 
   if (data === undefined) return <p className="text-muted">Loading…</p>;
   if (data === null) {
@@ -20,6 +26,13 @@ export function EntryPage() {
   }
 
   const { entry, passage } = data;
+
+  async function remove() {
+    if (!window.confirm(`Delete “${entry.title}”? This cannot be undone.`)) return;
+    await deleteEntry(entry.id);
+    navigate('/', { replace: true });
+  }
+
   return (
     <PatternCard
       title={entry.title}
@@ -31,13 +44,22 @@ export function EntryPage() {
       notes={entry.notes}
       skeleton={entry.skeleton}
       model={entry.model}
+      tags={entry.tags}
+      tagSuggestions={allTags}
+      userEdited={entry.userEdited}
+      onEdit={(patch) => updateEntry(entry.id, patch)}
       actions={
-        <Link
-          to={`/entry/${entry.id}/generate`}
-          className="rounded-md border border-rule px-3 py-1.5 text-sm hover:border-muted"
-        >
-          Generate from this pattern
-        </Link>
+        <>
+          <Link
+            to={`/entry/${entry.id}/generate`}
+            className="rounded-md border border-rule px-3 py-1.5 text-sm hover:border-muted"
+          >
+            Generate from this pattern
+          </Link>
+          <Button variant="quiet" onClick={() => void remove()} className="ml-auto">
+            Delete
+          </Button>
+        </>
       }
     />
   );

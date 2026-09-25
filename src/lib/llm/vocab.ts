@@ -133,3 +133,9 @@ export function vocabularyPrompt(language: Language): string {
     `If nothing fits, use "${OTHER_PREFIX}<short description>", e.g. "${OTHER_PREFIX}accusative of respect".`,
   ].join('\n');
 }
+
+/** Label for a key whose language is not known (the notebook mixes both). */
+export function labelForAny(kind: VocabKind, key: string): string {
+  const language: Language = kind === 'construction' && !Object.hasOwn(CONSTRUCTIONS.grc, key) ? 'la' : 'grc';
+  return labelFor(kind, key, language);
+}

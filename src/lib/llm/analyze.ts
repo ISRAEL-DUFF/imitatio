@@ -10,7 +10,7 @@ import {
   repairUserPrompt,
   type AnalysisInput,
 } from './prompts';
-import { analysisResponseSchema, stripNulls, type AnalysisResponse } from './schemas';
+import { analysisResponseSchema, skeletonSchema, stripNulls, type AnalysisResponse } from './schemas';
 import { isValidKey } from './vocab';
 
 // analyze(), spec §8.1–8.2: one analysis call, one repair call if the output
@@ -106,20 +106,21 @@ export function finalize(data: AnalysisResponse, input: AnalysisInput): Omit<Ana
     })),
   };
 
+  return { text: norm(input.text), notes, skeleton, ...indexKeys(skeleton) };
+}
+
+/** The denormalised keys an entry is indexed by (spec §6.1). */
+export function indexKeys(skeleton: PatternSkeleton): { constructionKeys: string[]; deviceKeys: string[] } {
   const constructionKeys = new Set<string>();
   for (const u of skeleton.units) {
     if (u.construction) constructionKeys.add(u.construction);
     // A special verb use that is itself a construction (historic_present) is indexed too.
     const special = u.verb?.specialUse;
-    if (special && isValidKey('construction', special, language) && !special.startsWith('other:')) {
+    if (special && !special.startsWith('other:') && isValidKey('construction', special, skeleton.language)) {
       constructionKeys.add(special);
     }
   }
-
   return {
-    text: norm(input.text),
-    notes,
-    skeleton,
     constructionKeys: [...constructionKeys],
     deviceKeys: [...new Set(skeleton.devices.map((d) => d.type))],
   };
@@ -160,4 +161,43 @@ export async function analyze(
   }
 
   return { ...finalize(parsed.data, normalized), model, repaired };
+}
+
+/**
+ * Validate a hand-edited skeleton (the JSON editor, spec §9.3) against the
+ * same schema as model output. The app-owned fields are kept from `base`
+ * whatever the JSON says, and quoted text is normalised as on analysis.
+ */
+export function parseSkeletonJson(
+  text: string,
+  base: Pick<PatternSkeleton, 'language' | 'level' | 'variety'>,
+): { ok: true; skeleton: PatternSkeleton } | { ok: false; errors: string } {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (err) {
+    return { ok: false, errors: `Not valid JSON: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  // Whatever the JSON says about the app-owned fields is ignored, not validated.
+  if (json && typeof json === 'object' && !Array.isArray(json)) {
+    const { schemaVersion: _v, language: _l, level: _lv, ...rest } = json as Record<string, unknown>;
+    json = rest;
+  }
+  const parsed = skeletonSchema.safeParse(stripNulls(json));
+  if (!parsed.success) return { ok: false, errors: z.prettifyError(parsed.error) };
+  const d = nfcDeep(parsed.data);
+  return {
+    ok: true,
+    skeleton: {
+      ...d,
+      schemaVersion: 1,
+      language: base.language,
+      level: base.level,
+      variety: base.variety ?? d.variety,
+      units: d.units.map((u) => ({
+        ...u,
+        slots: u.slots.map((s) => ({ ...s, exampleText: normalizeText(s.exampleText, base.language) })),
+      })),
+    },
+  };
 }
