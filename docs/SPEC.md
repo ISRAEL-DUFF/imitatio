@@ -9,7 +9,7 @@
 | Date | 25 September 2026 |
 | Status | Draft — for offline review |
 | Type | Frontend-only side project |
-| Stack | React + TypeScript + Vite, IndexedDB (via Dexie), browser-direct LLM calls (bring-your-own-key) |
+| Stack | React + TypeScript + Vite, IndexedDB (via Dexie), browser-direct LLM calls via OpenRouter (bring-your-own-key) |
 
 ---
 
@@ -45,7 +45,7 @@ Generation works from the skeleton, not from the prose notes. This is what makes
 - Save analyses and patterns locally in the browser, organised by tags, source, construction, and device.
 - Generate new Greek or Latin text from any saved pattern, optionally on a user-supplied topic.
 - Make Greek input practical through a Beta Code converter.
-- Work with no backend: static hosting, user-supplied API key, local storage, JSON export/import for backup.
+- Work with no backend: static hosting, user-supplied OpenRouter API key, local storage, JSON export/import for backup.
 
 ### 2.2 Non-goals (MVP)
 
@@ -76,7 +76,7 @@ Generation works from the skeleton, not from the prose notes. This is what makes
 
 ### 4.1 MVP (v1)
 
-- Settings: API key, model choice, default language, display preferences.
+- Settings: OpenRouter API key, model choice, default language, display preferences.
 - Analyse screen: text input (with Beta Code for Greek), source metadata, analysis request, rendered results.
 - Pattern card: notes + skeleton view, inline editing, tags.
 - Notebook: list, search, filter by language/author/construction/device/tag.
@@ -103,13 +103,13 @@ Limits are soft; the UI warns rather than blocks.
 flowchart LR
   UI[React UI] --> Store[Dexie / IndexedDB]
   UI --> LLM[LLM client]
-  LLM -->|HTTPS, user's API key| API[(Anthropic Messages API)]
+  LLM -->|HTTPS, user's API key| API[(OpenRouter Chat Completions API)]
   LLM --> Val[Zod schema validation]
   Val --> UI
   UI --> Export[JSON export / import]
 ```
 
-There is no application server. The browser talks directly to the LLM provider using the user's own key, and all data lives in IndexedDB on the user's machine.
+There is no application server. The browser talks directly to OpenRouter using the user's own key, and all data lives in IndexedDB on the user's machine.
 
 ### 5.2 Technology choices
 
@@ -502,27 +502,31 @@ The vocabularies live in `src/lib/llm/vocab.ts`, are inserted into the prompts, 
 
 ### 8.1 Client
 
-Calls go directly from the browser to the Anthropic Messages API using the user's key:
+Calls go directly from the browser to the OpenRouter Chat Completions API (OpenAI-compatible) using the user's OpenRouter key:
 
 ```ts
-const res = await fetch('https://api.anthropic.com/v1/messages', {
+const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': apiKey,
-    'anthropic-version': '2023-06-01',
-    'anthropic-dangerous-direct-browser-access': 'true',
+    'authorization': `Bearer ${apiKey}`,
+    'HTTP-Referer': location.origin,   // optional; identifies the app to OpenRouter
+    'X-Title': 'Imitatio',             // optional; app name shown in OpenRouter usage
   },
   body: JSON.stringify({
-    model,                 // from settings
+    model,                 // OpenRouter model slug from settings, e.g. "vendor/model-name"
     max_tokens: 8000,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }],
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },  // sent only when the chosen model supports it
   }),
 });
+const text = (await res.json()).choices[0].message.content;
 ```
 
-The model is a setting. The picker offers the current Claude models (a higher-quality option as the recommended default for analysis, and a cheaper, faster option for quick generations), plus a free-text field for any other model string. The LLM layer sits behind a small interface (`analyze()`, `generate()`) so another provider could be added later without touching the UI.
+The model is a setting, stored as an OpenRouter model slug. Separate models can be chosen for analysis and for generation (a higher-quality model as the recommended default for analysis, and a cheaper, faster one for quick generations). The picker is populated from OpenRouter's public model list (`GET https://openrouter.ai/api/v1/models`), cached locally, and also accepts a free-text slug. The LLM layer sits behind a small interface (`analyze()`, `generate()`) so another provider could be added later without touching the UI.
 
 ### 8.2 Response handling
 
@@ -612,7 +616,8 @@ Return ONLY JSON: { "outputs": [ { "text", "literalTranslation",
 |---|---|
 | No API key | Route to Settings with an explanation |
 | 401 | "Your API key was rejected" with a link to Settings |
-| 429 / overloaded | Automatic retry with backoff (up to 3 attempts), then a clear message |
+| 402 | "Your OpenRouter account is out of credits" with a link to OpenRouter |
+| 429 / 502 / 503 (rate-limited or upstream model unavailable) | Automatic retry with backoff (up to 3 attempts), then a clear message |
 | Network failure | Message with retry; the input is never lost |
 | Oversized input | Soft warning before sending (§4.2) |
 | Invalid JSON after repair | Raw output shown; nothing saved |
@@ -754,10 +759,10 @@ Older `schemaVersion` files are migrated on import.
 
 ## 14. Security and Privacy
 
-- The API key is stored only in IndexedDB on the user's device, or held in memory only if "ask each session" is enabled. It is sent only to the LLM provider.
+- The API key is stored only in IndexedDB on the user's device, or held in memory only if "ask each session" is enabled. It is sent only to OpenRouter.
 - Settings show a warning against storing the key on shared computers.
 - All LLM output is rendered as sanitised Markdown; no raw HTML is ever injected.
-- A Content Security Policy restricts network connections to the LLM provider's API.
+- A Content Security Policy restricts network connections to `https://openrouter.ai`.
 - There is no analytics or tracking in the MVP.
 
 ---
