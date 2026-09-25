@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  /* Gentium Plus is bundled locally (§5.2) for full polytonic coverage offline. */
+  --font-classical: 'Gentium Plus', 'Times New Roman', serif;
+
+  --color-paper: #faf8f3;
+  --color-ink: #1f1d1a;
+  --color-muted: #6b665d;
+  --color-rule: #e4dfd4;
+  --color-accent: #8a3b12;
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-paper: #16140f;
+      --color-ink: #ece7dc;
+      --color-muted: #a39d90;
+      --color-rule: #332f27;
+      --color-accent: #e08b5c;
+    }
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}
