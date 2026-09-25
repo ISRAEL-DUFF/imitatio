@@ -1,20 +1,20 @@
 import { z } from 'zod';
 import type { AnalysisNotes, NoteItem, PatternSkeleton } from '@/types';
 import { normalizeText } from '@/lib/greek/normalize';
-import { completeTask, type TaskRequest } from './index';
-import type { CompletionResult } from './openrouter';
+import { completeTask } from './index';
+import { analysisSystemPrompt, analysisUserPrompt, type AnalysisInput } from './prompts';
 import {
-  analysisSystemPrompt,
-  analysisUserPrompt,
-  repairSystemPrompt,
-  repairUserPrompt,
-  type AnalysisInput,
-} from './prompts';
-import { analysisResponseSchema, skeletonSchema, stripNulls, type AnalysisResponse } from './schemas';
+  analysisJsonSchema,
+  analysisResponseSchema,
+  skeletonSchema,
+  stripNulls,
+  type AnalysisResponse,
+} from './schemas';
+import { completeStructured, nfcDeep, parseWith, type Completer, type Parsed } from './structured';
 import { isValidKey } from './vocab';
 
-// analyze(), spec §8.1–8.2: one analysis call, one repair call if the output
-// does not parse or validate, and nothing invalid ever returned.
+// analyze(), spec §8.1–8.2. The parse/validate/repair loop is shared with
+// generate() in structured.ts; this file adds what is specific to analysis.
 
 const MAX_TOKENS = 16_000; // reasoning models spend part of this thinking
 const TIMEOUT_MS = 300_000;
@@ -29,49 +29,10 @@ export interface AnalysisResult {
   repaired: boolean;
 }
 
-/** The model's output could not be turned into a valid analysis. */
-export class AnalysisFormatError extends Error {
-  constructor(
-    readonly raw: string,
-    readonly errors: string,
-    readonly truncated = false,
-  ) {
-    super(truncated ? 'The response was cut off before it finished.' : 'The response did not match the schema.');
-    this.name = 'AnalysisFormatError';
-  }
-}
+export { extractJson, FormatError } from './structured';
 
-type Completer = (req: TaskRequest) => Promise<CompletionResult>;
-
-type Parsed = { ok: true; data: AnalysisResponse } | { ok: false; errors: string };
-
-/** Pull the JSON object out of a response: code fences and stray prose removed. */
-export function extractJson(text: string): string {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const body = (fenced ? fenced[1] : text).trim();
-  const start = body.indexOf('{');
-  const end = body.lastIndexOf('}');
-  return start !== -1 && end > start ? body.slice(start, end + 1) : body;
-}
-
-export function parseAnalysis(text: string): Parsed {
-  let json: unknown;
-  try {
-    json = JSON.parse(extractJson(text));
-  } catch (err) {
-    return { ok: false, errors: `Not valid JSON: ${err instanceof Error ? err.message : String(err)}` };
-  }
-  const result = analysisResponseSchema.safeParse(stripNulls(json));
-  return result.success ? { ok: true, data: result.data } : { ok: false, errors: z.prettifyError(result.error) };
-}
-
-function nfcDeep<T>(value: T): T {
-  if (typeof value === 'string') return value.normalize('NFC') as T;
-  if (Array.isArray(value)) return value.map(nfcDeep) as T;
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, nfcDeep(v)])) as T;
-  }
-  return value;
+export function parseAnalysis(text: string): Parsed<AnalysisResponse> {
+  return parseWith(analysisResponseSchema, text);
 }
 
 /** Add the fields the app owns and normalise the Greek/Latin quoted from the passage. */
@@ -130,37 +91,18 @@ export async function analyze(
   input: AnalysisInput,
   opts: { signal?: AbortSignal; complete?: Completer } = {},
 ): Promise<AnalysisResult> {
-  const complete: Completer = opts.complete ?? ((req) => completeTask('analysis', req));
   const normalized = { ...input, text: normalizeText(input.text, input.language) };
-  const base = { json: true, maxTokens: MAX_TOKENS, timeoutMs: TIMEOUT_MS, signal: opts.signal };
-
-  const first = await complete({
-    ...base,
+  const { data, model, repaired } = await completeStructured({
+    complete: opts.complete ?? ((req) => completeTask('analysis', req)),
+    schema: analysisResponseSchema,
+    schemaJson: analysisJsonSchema(),
     system: analysisSystemPrompt(input.language),
     user: analysisUserPrompt(normalized),
+    maxTokens: MAX_TOKENS,
+    timeoutMs: TIMEOUT_MS,
+    signal: opts.signal,
   });
-  if (first.finishReason === 'length') throw new AnalysisFormatError(first.text, 'Hit the output token limit.', true);
-
-  let parsed = parseAnalysis(first.text);
-  let model = first.model;
-  let repaired = false;
-
-  if (!parsed.ok) {
-    const second = await complete({
-      ...base,
-      system: repairSystemPrompt(),
-      user: repairUserPrompt(first.text, parsed.errors),
-    });
-    if (second.finishReason === 'length') {
-      throw new AnalysisFormatError(second.text, 'Hit the output token limit during repair.', true);
-    }
-    parsed = parseAnalysis(second.text);
-    if (!parsed.ok) throw new AnalysisFormatError(second.text, parsed.errors);
-    model = second.model;
-    repaired = true;
-  }
-
-  return { ...finalize(parsed.data, normalized), model, repaired };
+  return { ...finalize(data, normalized), model, repaired };
 }
 
 /**

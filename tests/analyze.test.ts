@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { analyze, AnalysisFormatError, extractJson, parseAnalysis, parseSkeletonJson } from '../src/lib/llm/analyze.ts';
+import { analyze, FormatError, extractJson, parseAnalysis, parseSkeletonJson } from '../src/lib/llm/analyze.ts';
 import { EXAMPLE_SKELETON } from '../src/lib/llm/example.ts';
 import type { TaskRequest } from '../src/lib/llm/index.ts';
 import type { CompletionResult } from '../src/lib/llm/openrouter.ts';
@@ -91,7 +91,7 @@ describe('analyze', () => {
   test('if repair fails too, nothing is returned and the raw output is kept', async () => {
     const { complete, calls } = scripted('garbage', 'still garbage');
     const err = await analyze(INPUT, { complete }).catch((e) => e);
-    assert.ok(err instanceof AnalysisFormatError);
+    assert.ok(err instanceof FormatError);
     assert.equal(err.raw, 'still garbage');
     assert.equal(err.truncated, false);
     assert.equal(calls.length, 2);
@@ -100,7 +100,7 @@ describe('analyze', () => {
   test('a truncated response is not sent for repair', async () => {
     const { complete, calls } = scripted({ text: '{"notes": {', finishReason: 'length' });
     const err = await analyze(INPUT, { complete }).catch((e) => e);
-    assert.ok(err instanceof AnalysisFormatError);
+    assert.ok(err instanceof FormatError);
     assert.equal(err.truncated, true);
     assert.equal(calls.length, 1);
   });

@@ -170,7 +170,7 @@ export function PatternCard(props: PatternCardProps) {
             />
           )}
           {tab === 'Generations' &&
-            (props.generations ?? <p className="text-muted">Generating new text from this pattern arrives in M4.</p>)}
+            (props.generations ?? <p className="text-muted">Save this analysis to generate new text from its pattern.</p>)}
         </div>
       </div>
     </article>

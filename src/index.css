@@ -86,18 +86,22 @@
   --color-rule: #e4dfd4;
   --color-accent: #8a3b12;
 
-  /* One colour per skeleton unit, shared by the Skeleton strip and (M4) the
-     generation mapping. */
-  --color-unit-1: #2f6f9f;
-  --color-unit-2: #a0522d;
-  --color-unit-3: #4f7d3a;
-  --color-unit-4: #7a4f9a;
-  --color-unit-5: #9a7a1f;
-  --color-unit-6: #2f8a86;
   --color-highlight: #f3dca8;
 }
 
 @layer base {
+  /* One colour per skeleton unit, shared by the Skeleton strip and the
+     generation mapping. Plain custom properties, not @theme: they are only
+     used from inline styles, and Tailwind drops @theme variables that no
+     utility uses. In this layer so the dark-mode values below can override. */
+  :root {
+    --color-unit-1: #2f6f9f;
+    --color-unit-2: #a0522d;
+    --color-unit-3: #4f7d3a;
+    --color-unit-4: #7a4f9a;
+    --color-unit-5: #9a7a1f;
+    --color-unit-6: #2f8a86;
+  }
   html {
     color-scheme: light dark;
   }

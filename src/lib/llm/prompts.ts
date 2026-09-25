@@ -76,13 +76,13 @@ export function analysisUserPrompt(input: AnalysisInput): string {
   ].join('\n');
 }
 
-export function repairSystemPrompt(): string {
+export function repairSystemPrompt(schemaJson: string): string {
   return `You repair JSON so that it matches a schema. You receive an earlier
 response and the errors found in it. Return ONLY the corrected JSON object,
 keeping all of the original content that was valid. No prose, no code fences.
 
 <schema>
-${analysisJsonSchema()}
+${schemaJson}
 </schema>`;
 }
 

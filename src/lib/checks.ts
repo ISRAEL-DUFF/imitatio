@@ -101,3 +101,49 @@ export function checkAnalysis(
     ...vocabularyWarnings(skeleton, language),
   ];
 }
+
+// Generation check, spec §8.3.
+
+export type GenerationCheckKind = 'mapping' | 'connective' | 'unit';
+
+export interface GenerationWarning {
+  kind: GenerationCheckKind;
+  message: string;
+}
+
+/** Whether `phrase` occurs as whole words in `text`, ignoring accents. */
+function hasWords(text: string, phrase: string, language: Language): boolean {
+  const seq = (s: string) => ` ${words(normalizeText(s, language)).map((w) => fold(w.text, language)).join(' ')} `;
+  const needle = seq(phrase).trim();
+  return needle !== '' && seq(text).includes(` ${needle} `);
+}
+
+export function checkGeneration(
+  text: string,
+  unitMapping: { unitId: string; text: string }[],
+  skeleton: PatternSkeleton,
+  language: Language,
+): GenerationWarning[] {
+  const out: GenerationWarning[] = [];
+  const ids = new Set(skeleton.units.map((u) => u.id));
+
+  for (const m of unitMapping) {
+    if (!ids.has(m.unitId)) {
+      out.push({ kind: 'unit', message: `The mapping names ${m.unitId}, which is not a unit of this pattern.` });
+      continue;
+    }
+    const at = locate(text, m.text, language);
+    if (at === 'missing') out.push({ kind: 'mapping', message: `${m.unitId}: “${m.text}” is not in the generated text.` });
+    if (at === 'folded')
+      out.push({ kind: 'mapping', message: `${m.unitId}: “${m.text}” matches the text only if accents are ignored.` });
+  }
+
+  const mapped = new Set(unitMapping.map((m) => m.unitId));
+  for (const u of skeleton.units) {
+    if (!mapped.has(u.id)) out.push({ kind: 'unit', message: `${u.id} has no words mapped to it.` });
+    if (u.connective && !hasWords(text, u.connective, language)) {
+      out.push({ kind: 'connective', message: `${u.id}: the connective “${u.connective}” is missing.` });
+    }
+  }
+  return out;
+}

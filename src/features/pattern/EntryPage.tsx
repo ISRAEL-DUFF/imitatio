@@ -4,6 +4,7 @@ import { PageStub } from '@/components/PageStub';
 import { Button } from '@/components/ui';
 import { db } from '@/lib/db/db';
 import { deleteEntry, updateEntry, useEntry } from '@/lib/db/entries';
+import { GenerationsList } from '@/features/generate/GenerationsList';
 import { PatternCard } from './PatternCard';
 
 export function EntryPage() {
@@ -48,6 +49,7 @@ export function EntryPage() {
       tagSuggestions={allTags}
       userEdited={entry.userEdited}
       onEdit={(patch) => updateEntry(entry.id, patch)}
+      generations={<GenerationsList entryId={entry.id} skeleton={entry.skeleton} language={entry.language} />}
       actions={
         <>
           <Link

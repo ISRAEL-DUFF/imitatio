@@ -44,5 +44,5 @@ tests/
 | M1 Settings and LLM client | Done; live call with a real key still to confirm |
 | M2 Analyse | Done; live analysis with a real key still to confirm |
 | M3 Notebook | Done |
-| M4 Generate | Next |
-| M5 Input and polish | |
+| M4 Generate | Done; live generation with a real key still to confirm |
+| M5 Input and polish | Next |

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { Language, Level, Variety } from '@/types';
 import { ErrorNotice } from '@/components/ErrorNotice';
+import { FormatFailure } from '@/components/FormatFailure';
 import { Button, Callout, inputClass } from '@/components/ui';
 import { saveAnalysis } from '@/lib/db/entries';
 import { loadPreferences, useApiKey, usePreferences } from '@/lib/db/settings';
 import { wordCount } from '@/lib/greek/normalize';
 import { LANGUAGE_LABELS, VARIETIES, varietyFor } from '@/lib/language';
-import { analyze, AnalysisFormatError, type AnalysisResult } from '@/lib/llm/analyze';
+import { analyze, FormatError, type AnalysisResult } from '@/lib/llm/analyze';
 import type { AnalysisInput } from '@/lib/llm/prompts';
 import { PatternCard } from '@/features/pattern/PatternCard';
 import { clearDraft, loadDraft, saveDraft } from './draft';
@@ -27,31 +28,6 @@ function useElapsed(started: number | null) {
     return () => clearInterval(id);
   }, [started]);
   return started === null ? 0 : Math.max(0, Math.round((now - started) / 1000));
-}
-
-function FormatFailure({ error, onRetry }: { error: AnalysisFormatError; onRetry: () => void }) {
-  return (
-    <Callout tone="warn">
-      <div role="alert">
-        <p className="font-medium">
-          {error.truncated ? 'The analysis was cut off' : 'The model’s answer could not be read'}
-        </p>
-        <p className="mt-1 text-muted">
-          {error.truncated
-            ? 'The response hit the output limit before it finished. Try a shorter passage, or split a paragraph into periods.'
-            : 'It did not match the expected format, even after one repair attempt. Nothing was saved.'}
-        </p>
-      </div>
-      <Button variant="quiet" className="mt-2" onClick={onRetry}>
-        Try again
-      </Button>
-      <details className="mt-2 text-xs">
-        <summary className="cursor-pointer text-muted">Raw output and errors</summary>
-        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-rule/40 p-2">{error.errors}</pre>
-        <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded bg-rule/40 p-2">{error.raw}</pre>
-      </details>
-    </Callout>
-  );
 }
 
 export function AnalyzePage() {
@@ -293,7 +269,7 @@ export function AnalyzePage() {
       </div>
 
       {status.state === 'failed' &&
-        (status.error instanceof AnalysisFormatError ? (
+        (status.error instanceof FormatError ? (
           <FormatFailure error={status.error} onRetry={() => void run()} />
         ) : (
           <ErrorNotice error={status.error} onRetry={() => void run()} />
