@@ -1,6 +1,9 @@
 import { Button, Callout } from '@/components/ui';
 import { updatePreferences, usePreferences } from '@/lib/db/settings';
+import { AboutSection } from './AboutSection';
 import { ApiKeySection } from './ApiKeySection';
+import { AppearanceSection } from './AppearanceSection';
+import { DataSection } from './DataSection';
 import { DefaultsSection } from './DefaultsSection';
 import { ModelsSection } from './ModelsSection';
 
@@ -43,9 +46,9 @@ export function SettingsPage() {
           <ApiKeySection prefs={prefs} />
           <ModelsSection prefs={prefs} />
           <DefaultsSection prefs={prefs} />
-          <p className="border-t border-rule pt-6 text-sm text-muted">
-            Font size, theme, and notebook export and import arrive in M5.
-          </p>
+          <AppearanceSection prefs={prefs} />
+          <DataSection />
+          <AboutSection />
         </>
       )}
     </div>

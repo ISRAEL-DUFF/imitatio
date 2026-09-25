@@ -41,15 +41,16 @@ export function finalize(data: AnalysisResponse, input: AnalysisInput): Omit<Ana
   const norm = (s: string) => normalizeText(s, language);
   const d = nfcDeep(data);
 
-  const note = (n: AnalysisResponse['notes']['discourse'][number]): NoteItem => ({
+  const note = ({ reference, ...n }: AnalysisResponse['notes']['discourse'][number]): NoteItem => ({
     ...n,
     evidence: n.evidence.map(norm),
-    reference: n.reference && { ...n.reference, verified: false }, // §12: never trust LLM section numbers
+    // §12: never trust LLM section numbers. No key at all when there is no reference.
+    ...(reference ? { reference: { ...reference, verified: false } } : {}),
   });
 
   const notes: AnalysisNotes = {
     ...d.notes,
-    tokens: d.notes.tokens?.map((t) => ({ ...t, form: norm(t.form) })),
+    ...(d.notes.tokens ? { tokens: d.notes.tokens.map((t) => ({ ...t, form: norm(t.form) })) } : {}),
     syntax: { ...d.notes.syntax, constructions: d.notes.syntax.constructions.map(note) },
     discourse: d.notes.discourse.map(note),
     style: d.notes.style.map(note),
@@ -59,7 +60,7 @@ export function finalize(data: AnalysisResponse, input: AnalysisInput): Omit<Ana
     ...d.skeleton,
     schemaVersion: 1,
     language,
-    variety: input.variety ?? d.skeleton.variety,
+    ...((input.variety ?? d.skeleton.variety) ? { variety: input.variety ?? d.skeleton.variety } : {}),
     level: input.level,
     units: d.skeleton.units.map((u) => ({
       ...u,
@@ -135,7 +136,7 @@ export function parseSkeletonJson(
       schemaVersion: 1,
       language: base.language,
       level: base.level,
-      variety: base.variety ?? d.variety,
+      ...((base.variety ?? d.variety) ? { variety: base.variety ?? d.variety } : {}),
       units: d.units.map((u) => ({
         ...u,
         slots: u.slots.map((s) => ({ ...s, exampleText: normalizeText(s.exampleText, base.language) })),

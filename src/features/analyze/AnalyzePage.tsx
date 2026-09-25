@@ -6,6 +6,7 @@ import { FormatFailure } from '@/components/FormatFailure';
 import { Button, Callout, inputClass } from '@/components/ui';
 import { saveAnalysis } from '@/lib/db/entries';
 import { loadPreferences, useApiKey, usePreferences } from '@/lib/db/settings';
+import { betaToUnicode } from '@/lib/greek/betacode';
 import { wordCount } from '@/lib/greek/normalize';
 import { LANGUAGE_LABELS, VARIETIES, varietyFor } from '@/lib/language';
 import { analyze, FormatError, type AnalysisResult } from '@/lib/llm/analyze';
@@ -36,6 +37,7 @@ export function AnalyzePage() {
   const key = useApiKey();
   const [input, setInput] = useState<AnalysisInput | null>(null);
   const [result, setResult] = useState<AnalysisResult | undefined>();
+  const [beta, setBeta] = useState({ on: false, source: '' });
   const [status, setStatus] = useState<Status>({ state: 'idle' });
   const [saving, setSaving] = useState(false);
   const abort = useRef<AbortController | null>(null);
@@ -56,6 +58,7 @@ export function AnalyzePage() {
         },
       );
       setResult(draft?.result);
+      setBeta(draft?.beta ?? { on: p.betaCodeInput, source: draft?.input.text ?? '' });
     });
     return () => {
       cancelled = true;
@@ -66,13 +69,23 @@ export function AnalyzePage() {
   // Save as the user types.
   useEffect(() => {
     if (!input) return;
-    const id = setTimeout(() => void saveDraft({ input, result }), 300);
+    const id = setTimeout(() => void saveDraft({ input, result, beta }), 300);
     return () => clearTimeout(id);
-  }, [input, result]);
+  }, [input, result, beta]);
 
   if (!input || !prefs) return <p className="text-muted">Loading…</p>;
 
   const update = (patch: Partial<AnalysisInput>) => setInput((i) => (i ? { ...i, ...patch } : i));
+  // Beta Code applies to Greek only. The passage sent and saved is always the Unicode.
+  const betaActive = beta.on && input.language === 'grc';
+  const typeText = (value: string) => {
+    if (betaActive) {
+      setBeta((b) => ({ ...b, source: value }));
+      update({ text: betaToUnicode(value) });
+    } else update({ text: value });
+  };
+  // Unicode passes through the converter, so switching on keeps what is there.
+  const toggleBeta = (on: boolean) => setBeta({ on, source: input.text });
   const count = wordCount(input.text);
   const over = count > LIMITS[input.level];
   const hasKey = !!key && key.source !== 'none';
@@ -203,23 +216,46 @@ export function AnalyzePage() {
       </div>
 
       <div>
-        <label htmlFor="passage" className="block text-sm font-medium mb-1">
-          Passage
-        </label>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <label htmlFor="passage" className="block text-sm font-medium">
+            Passage
+          </label>
+          {input.language === 'grc' && (
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={beta.on} onChange={(e) => toggleBeta(e.target.checked)} />
+              Type in Beta Code
+              <span className="text-muted">
+                (<code>a)/nqrwpos</code> → <span className="font-classical">ἄνθρωπος</span>)
+              </span>
+            </label>
+          )}
+        </div>
         <textarea
           id="passage"
-          lang={input.language === 'grc' ? 'grc' : 'la'}
+          lang={betaActive ? 'en' : input.language === 'grc' ? 'grc' : 'la'}
           rows={5}
           spellCheck={false}
-          value={input.text}
-          onChange={(e) => update({ text: e.target.value })}
+          autoCapitalize="off"
+          autoCorrect="off"
+          value={betaActive ? beta.source : input.text}
+          onChange={(e) => typeText(e.target.value)}
           placeholder={
-            input.language === 'grc'
-              ? 'Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο…'
-              : 'Gallia est omnis divisa in partes tres…'
+            betaActive
+              ? '*darei/ou kai\\ *parusa/tidos gi/gnontai pai=des du/o…'
+              : input.language === 'grc'
+                ? 'Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο…'
+                : 'Gallia est omnis divisa in partes tres…'
           }
-          className={`${inputClass} font-classical text-xl leading-relaxed`}
+          className={`${inputClass} ${betaActive ? 'font-mono text-base' : 'font-classical text-xl'} leading-relaxed`}
         />
+        {betaActive && (
+          <div className="mt-2 rounded-md border border-rule px-3 py-2" aria-live="polite">
+            <p className="text-xs text-muted">Preview (this is what will be analysed)</p>
+            <p lang="grc" className="font-classical text-xl leading-relaxed min-h-8">
+              {input.text || <span className="text-muted">…</span>}
+            </p>
+          </div>
+        )}
         <p className={`mt-1 text-xs ${over ? 'text-accent' : 'text-muted'}`} aria-live="polite">
           {count} / {LIMITS[input.level]} words for a {input.level}
           {over &&

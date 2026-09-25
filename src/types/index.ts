@@ -55,6 +55,8 @@ export interface Generation {
   outputs: GeneratedText[];
   model: string;
   createdAt: number;
+  /** Set when an output is starred or deleted, so import can merge (§13). */
+  updatedAt?: number;
 }
 
 export interface GeneratedText {

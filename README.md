@@ -9,6 +9,17 @@ models) with your own key, and everything is stored locally in IndexedDB.
 
 The full product specification is in [`docs/SPEC.md`](docs/SPEC.md).
 
+## Getting started
+
+1. `npm install`, then `npm run dev`.
+2. Open Settings, paste an [OpenRouter API key](https://openrouter.ai/keys), and press
+   **Test** next to each model.
+3. Analyse a passage (Greek can be typed in Beta Code: `a)/nqrwpos` → ἄνθρωπος), save it,
+   and generate new text from its pattern.
+
+Back up the notebook from Settings → Notebook data. The production build also works as
+an installable app that opens offline; analysis and generation need a connection.
+
 ## Stack
 
 React 19 · TypeScript · Vite · Tailwind CSS 4 · React Router · Dexie (IndexedDB) ·
@@ -41,8 +52,13 @@ tests/
 | Milestone | State |
 |---|---|
 | M0 Scaffold | Done |
-| M1 Settings and LLM client | Done; live call with a real key still to confirm |
-| M2 Analyse | Done; live analysis with a real key still to confirm |
+| M1 Settings and LLM client | Done |
+| M2 Analyse | Done |
 | M3 Notebook | Done |
-| M4 Generate | Done; live generation with a real key still to confirm |
-| M5 Input and polish | Next |
+| M4 Generate | Done |
+| M5 Input and polish | Done |
+
+Every milestone is covered by unit tests and was checked end to end in Chromium
+against scripted OpenRouter responses. **Not yet confirmed: a live run with a real
+key**, which is the only way to judge whether Gemini keeps to the response format,
+how often the repair step is needed, and how good the analyses are.

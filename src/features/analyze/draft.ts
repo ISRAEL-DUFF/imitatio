@@ -11,6 +11,8 @@ const KEY = 'analyzeDraft';
 export interface AnalyzeDraft {
   input: AnalysisInput;
   result?: AnalysisResult;
+  /** Beta Code input (§10.1): whether it is on, and what was typed. */
+  beta?: { on: boolean; source: string };
 }
 
 export async function loadDraft(db: ImitatioDB = defaultDb): Promise<AnalyzeDraft | null> {

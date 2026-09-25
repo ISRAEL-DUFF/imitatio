@@ -1,5 +1,7 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
+import { useAppearance } from '@/lib/appearance';
 import { useApiKey, usePreferences } from '@/lib/db/settings';
+import { useOnline } from '@/lib/useOnline';
 
 const NAV = [
   { to: '/', label: 'Notebook', end: true },
@@ -11,6 +13,8 @@ export function Layout() {
   const prefs = usePreferences();
   const key = useApiKey();
   const { pathname } = useLocation();
+  useAppearance(prefs);
+  const online = useOnline();
 
   // First launch with no key opens the onboarding panel in Settings (§9.1).
   if (prefs && !prefs.onboarded && key?.source === 'none' && pathname !== '/settings') {
@@ -36,6 +40,15 @@ export function Layout() {
               </NavLink>
             ))}
           </nav>
+          {!online && (
+            <span
+              role="status"
+              className="ml-auto rounded border border-rule px-2 text-xs leading-6 text-muted"
+              title="The notebook works offline. Analysis and generation need a connection."
+            >
+              Offline
+            </span>
+          )}
         </div>
       </header>
       <main className="flex-1 mx-auto w-full max-w-5xl px-4 py-8">

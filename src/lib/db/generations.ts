@@ -33,7 +33,7 @@ async function editOutputs(
     const g = await db.generations.get(id);
     if (!g) return;
     const outputs = edit(g.outputs);
-    if (outputs.length) await db.generations.put({ ...g, outputs });
+    if (outputs.length) await db.generations.put({ ...g, outputs, updatedAt: Date.now() });
     else await db.generations.delete(id);
   });
 }

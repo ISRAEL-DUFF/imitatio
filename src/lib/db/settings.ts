@@ -10,6 +10,8 @@ import { db as defaultDb, type ImitatioDB } from './db';
 // ("ask each session"), and it never appears in the Preferences object.
 
 export type ApiKeyMode = 'store' | 'session';
+export type ThemePreference = 'system' | 'light' | 'dark';
+export type TextSize = 'small' | 'medium' | 'large' | 'larger';
 
 export interface Preferences {
   apiKeyMode: ApiKeyMode;
@@ -18,6 +20,8 @@ export interface Preferences {
   defaultLanguage: Language;
   defaultVariety: Variety;
   betaCodeInput: boolean;
+  theme: ThemePreference;
+  textSize: TextSize;
   /** Set once the first-launch panel has been completed or skipped. */
   onboarded: boolean;
 }
@@ -29,6 +33,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   defaultLanguage: 'grc',
   defaultVariety: 'attic',
   betaCodeInput: true,
+  theme: 'system',
+  textSize: 'medium',
   onboarded: false,
 };
 
