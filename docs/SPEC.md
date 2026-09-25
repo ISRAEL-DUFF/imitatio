@@ -526,7 +526,14 @@ const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 const text = (await res.json()).choices[0].message.content;
 ```
 
-The model is a setting, stored as an OpenRouter model slug. Separate models can be chosen for analysis and for generation (a higher-quality model as the recommended default for analysis, and a cheaper, faster one for quick generations). The picker is populated from OpenRouter's public model list (`GET https://openrouter.ai/api/v1/models`), cached locally, and also accepts a free-text slug. The LLM layer sits behind a small interface (`analyze()`, `generate()`) so another provider could be added later without touching the UI.
+The model is a setting, stored as an OpenRouter model slug. The app uses Google Gemini models through OpenRouter, with separate defaults for analysis and for generation:
+
+| Task | Default model | Why |
+|---|---|---|
+| Analysis | `google/gemini-3.7-flash` | Reasoning model; higher quality on morphological parsing and syntax, at the cost of billed reasoning tokens |
+| Generation | `google/gemini-3.1-flash-lite` | No reasoning overhead; much cheaper and faster for quick compositions |
+
+Both defaults are defined in one place (`src/lib/llm/models.ts`) so that a model withdrawn upstream is a one-line change. The picker is populated from OpenRouter's public model list (`GET https://openrouter.ai/api/v1/models`), cached locally, and also accepts a free-text slug. The LLM layer sits behind a small interface (`analyze()`, `generate()`) so another provider could be added later without touching the UI.
 
 ### 8.2 Response handling
 
@@ -813,7 +820,7 @@ Older `schemaVersion` files are migrated on import.
 
 1. **Name.** Is "Imitatio" the right working title?
 2. **Classical or Koine first?** This decides the default variety, the example passages used in testing, and which reference grammars the prompts favour.
-3. **Default model and cost.** Which model should be the default for analysis versus generation?
+3. **Default model and cost.** ~~Which model should be the default for analysis versus generation?~~ Resolved: Gemini via OpenRouter (§8.1). Still open: whether a Gemini 3.7 Flash analysis is good enough, or whether a larger Gemini model is worth its cost for hard periods.
 4. **Token table.** Should it always be generated at sentence level, or only on request, to keep responses smaller?
 5. **Latin macrons.** Should generated Latin include macrons by default?
 6. **Sub-span patterns.** Should a user be able to select part of a passage and save only that span as its own pattern?
