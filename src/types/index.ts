@@ -60,6 +60,8 @@ export interface Generation {
 }
 
 export interface GeneratedText {
+  /** The new story in one English sentence (absent on generations made before it existed). */
+  scenario?: string;
   text: string; // NFC-normalised
   literalTranslation: string;
   unitMapping: { unitId: string; text: string }[];

@@ -8,10 +8,12 @@ export function GenerationsList({
   entryId,
   skeleton,
   language,
+  source,
 }: {
   entryId: string;
   skeleton: PatternSkeleton;
   language: Language;
+  source: string;
 }) {
   const generations = useGenerations(entryId);
   if (generations === undefined) return <p className="text-muted">Loading…</p>;
@@ -43,6 +45,7 @@ export function GenerationsList({
           output={output}
           skeleton={skeleton}
           language={language}
+          source={source}
           heading={
             <span className="text-xs text-muted">
               {new Date(generation.createdAt).toLocaleDateString()}

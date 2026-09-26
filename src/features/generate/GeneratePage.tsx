@@ -87,6 +87,10 @@ export function GeneratePage() {
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">Generate from this pattern</h1>
         <p className="mt-1 text-sm text-muted">{skeleton.summary}</p>
+        <p className="mt-2 max-w-prose text-sm">
+          Each composition keeps this pattern’s syntax and discourse and tells a different story. Give a topic to choose
+          the story yourself.
+        </p>
       </div>
 
       {key?.source === 'none' && (
@@ -181,6 +185,7 @@ export function GeneratePage() {
             output={output}
             skeleton={skeleton}
             language={language}
+            source={passage.text}
             heading={<span className="text-xs text-muted">{latest.model}</span>}
             onStar={() => void toggleStar(latest.id, index)}
             onDelete={() => {

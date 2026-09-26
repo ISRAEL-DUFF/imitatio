@@ -104,7 +104,7 @@ export function checkAnalysis(
 
 // Generation check, spec §8.3.
 
-export type GenerationCheckKind = 'mapping' | 'connective' | 'unit';
+export type GenerationCheckKind = 'mapping' | 'connective' | 'unit' | 'reuse';
 
 export interface GenerationWarning {
   kind: GenerationCheckKind;
@@ -118,11 +118,58 @@ function hasWords(text: string, phrase: string, language: Language): boolean {
   return needle !== '' && seq(text).includes(` ${needle} `);
 }
 
+// Words that carry grammar rather than story: articles, particles, common
+// prepositions and conjunctions, pronouns and small numerals. Keeping the
+// pattern can require them, so reusing them is not reusing the story.
+// Folded forms (see fold()).
+const FUNCTION_WORDS: Record<Language, string[]> = {
+  grc: [
+    'ο', 'η', 'το', 'οι', 'αι', 'τα', 'του', 'τησ', 'των', 'τω', 'τη', 'τοισ', 'ταισ', 'τον', 'την', 'τουσ', 'τασ',
+    'και', 'τε', 'δε', 'δ’', 'μεν', 'γαρ', 'ουν', 'αλλα', 'αλλ’', 'ουτε', 'μητε', 'ουδε', 'μηδε', 'δη', 'γε', 'αρα',
+    'εν', 'εισ', 'εσ', 'εκ', 'εξ', 'απο', 'απ’', 'αφ’', 'προσ', 'επι', 'επ’', 'εφ’', 'δια', 'δι’', 'κατα', 'κατ’',
+    'καθ’', 'μετα', 'μετ’', 'μεθ’', 'παρα', 'παρ’', 'περι', 'υπο', 'υπ’', 'υφ’', 'υπερ', 'ανα', 'συν', 'ξυν',
+    'ωσ', 'οτι', 'ου', 'ουκ', 'ουχ', 'μη', 'αν', 'ει', 'εαν', 'επει', 'οτε', 'τισ', 'τι', 'τινοσ', 'τινι', 'τινα',
+    'αυτοσ', 'αυτου', 'αυτω', 'αυτον', 'αυτη', 'αυτησ', 'αυτην', 'αυτο', 'αυτοι', 'αυτων', 'αυτοισ', 'αυτουσ',
+    'ουτοσ', 'τουτο', 'τουτου', 'ταυτα', 'οσ', 'ων', 'εστι', 'εστιν', 'εισι', 'εισιν', 'ην', 'ησαν',
+    // εἷς folds to the same form as εἰς, already listed.
+    'μια', 'ενοσ', 'δυο', 'τρεισ', 'τρια', 'τετταρεσ', 'τεσσαρεσ', 'πεντε',
+  ],
+  la: [
+    'et', 'atque', 'ac', 'sed', 'autem', 'enim', 'igitur', 'nam', 'tamen', 'uero', 'quoque',
+    'in', 'ad', 'ab', 'a', 'e', 'ex', 'de', 'cum', 'per', 'pro', 'sub', 'inter', 'ob', 'post', 'ante',
+    'non', 'ne', 'ut', 'uti', 'si', 'nisi', 'quod', 'qui', 'quae', 'quem', 'quam', 'cuius', 'cui',
+    'is', 'ea', 'id', 'eius', 'ei', 'eum', 'eam', 'hic', 'haec', 'hoc', 'ille', 'illa', 'illud', 'se', 'sui',
+    'est', 'sunt', 'erat', 'erant', 'esse', 'fuit', 'unus', 'una', 'unum', 'duo', 'duae', 'tres', 'tria',
+  ],
+};
+
+/** Content words of the source that the generated text uses again, in the text's own forms. */
+export function reusedWords(text: string, source: string, skeleton: PatternSkeleton, language: Language): {
+  reused: string[];
+  contentWords: number;
+} {
+  const skip = new Set(FUNCTION_WORDS[language]);
+  for (const u of skeleton.units) {
+    if (u.connective) for (const w of words(u.connective)) skip.add(fold(w.text, language));
+  }
+  const content = (s: string) =>
+    words(normalizeText(s, language))
+      .map((w) => ({ form: w.text, key: fold(w.text, language) }))
+      .filter((w) => !skip.has(w.key));
+  const sourceKeys = new Set(content(source).map((w) => w.key));
+  const own = content(text);
+  const seen = new Set<string>();
+  const reused = own.filter((w) => sourceKeys.has(w.key) && !seen.has(w.key) && seen.add(w.key)).map((w) => w.form);
+  return { reused, contentWords: own.length };
+}
+
 export function checkGeneration(
   text: string,
   unitMapping: { unitId: string; text: string }[],
   skeleton: PatternSkeleton,
   language: Language,
+  /** The source passage: the new text should tell a different story in other words. */
+  source?: string,
 ): GenerationWarning[] {
   const out: GenerationWarning[] = [];
   const ids = new Set(skeleton.units.map((u) => u.id));
@@ -143,6 +190,16 @@ export function checkGeneration(
     if (!mapped.has(u.id)) out.push({ kind: 'unit', message: `${u.id} has no words mapped to it.` });
     if (u.connective && !hasWords(text, u.connective, language)) {
       out.push({ kind: 'connective', message: `${u.id}: the connective “${u.connective}” is missing.` });
+    }
+  }
+
+  if (source) {
+    const { reused, contentWords } = reusedWords(text, source, skeleton, language);
+    if (reused.length >= 2 || (contentWords > 0 && reused.length / contentWords >= 0.25)) {
+      out.push({
+        kind: 'reuse',
+        message: `Reuses the source’s vocabulary (${reused.join(', ')}): this may be the same story retold.`,
+      });
     }
   }
   return out;

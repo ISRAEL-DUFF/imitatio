@@ -34,6 +34,8 @@ Every saved entry has **two layers**:
 
 Generation works from the skeleton, not from the prose notes. This is what makes "generate text with the same syntax and discourse" reliable rather than vaguely similar.
 
+A generated text keeps the pattern's **syntax and discourse** and tells a **different story**: a new situation, new participants and new content words. Swapping the names in the source is not imitation. To make that possible, a skeleton's invariants describe grammar and discourse only, never vocabulary or subject matter, and the source's own words are never sent to the model at generation time.
+
 ---
 
 ## 2. Goals and Non-Goals
@@ -200,6 +202,7 @@ interface Generation {
 }
 
 interface GeneratedText {
+  scenario?: string;          // the new story in one English sentence, stated before the text
   text: string;               // NFC-normalised
   literalTranslation: string;
   unitMapping: { unitId: string; text: string }[];  // which part realises which skeleton unit
@@ -426,15 +429,15 @@ interface DiscourseProfile {
     "register": "plain historical narrative"
   },
   "invariants": [
-    "Genitive of origin fronted before the verb",
-    "Historic present of a verb of coming-to-be or existing",
-    "Numeral in the subject matching the number of appositive members",
-    "Appositive members in the shape [adjective] μέν [name], [adjective] δέ [name], with no verb"
+    "A genitive phrase fronted before the verb as the topic that frames the sentence",
+    "A historic present, third person plural, with its subject after it as the focus",
+    "A numeral in the subject announcing how many members follow",
+    "One appositive member per item announced, each [attribute] μέν / [attribute] δέ + [noun], with no verb of its own"
   ],
   "freeSlots": [
-    "Names of the parents and children",
-    "The choice of verb within the same semantic class",
-    "The contrasting adjectives (e.g. older/younger, wiser/bolder)"
+    "The situation and everything in it: participants, places and things",
+    "The verb, provided it is a historic present that fits the fronted genitive and the subject",
+    "The attributes that set the members against each other (any contrasting pair)"
   ]
 }
 ```
@@ -550,6 +553,7 @@ Even without a parser, some errors can be caught in the browser:
 - **Token check:** the `tokens[].form` values, in order, must reproduce the passage's words. Mismatches are flagged.
 - **Vocabulary check:** construction, device, and move keys must be in the vocabulary or use the `other:` prefix.
 - **Generation check:** every `unitMapping.text` must appear in the generated text, and every connective listed in the skeleton (μέν, δέ, γάρ, *autem*...) must be present, compared accent-insensitively (so μὲν matches μέν).
+- **Reuse check:** a generated text that reuses the source's content words (two or more, or a quarter of its own) is flagged as possibly the same story retold. Articles, particles, prepositions, numerals and the pattern's connectives do not count.
 
 ### 8.4 Draft prompts
 
@@ -596,26 +600,40 @@ Passage:
 **Generation — system prompt (draft)**
 
 ```
-You compose new Ancient Greek or Latin text that follows a given structural pattern.
+You compose new Ancient Greek or Latin text that has the same syntax and
+discourse structure as a model passage, but tells a completely different story.
 
-You will receive a pattern skeleton. Write NEW text in the same language that:
-- realises every unit, in the same order;
-- preserves every item listed in "invariants";
-- keeps the specified constructions, moods, tenses, particles/connectives,
-  style devices, discourse moves, and topic/focus positions;
-- changes only what "freeSlots" allows, following the user's topic if given.
+You receive the model's pattern skeleton, without its words. KEEP the pattern:
+- every unit, in the same order, with the same role, construction and dependency;
+- each slot's grammatical function and case, in the same order within its unit;
+- each verb's finiteness, mood, tense, voice, person, number and special use;
+- the connectives and particles, in the same places;
+- the style devices and the discourse moves;
+- the information structure: what is topic and what is focus.
 
-Use correct morphology and idiom for the stated variety. For Greek, write full
-polytonic accentuation and breathings. For Latin, use classical orthography
-without macrons unless asked.
+Read "invariants" as constraints on grammar and discourse only. The descriptions
+in the skeleton describe the model passage; carry over what each element does,
+not what it is about.
 
-For each output, give a literal English translation, map each unit id to the
-words that realise it, and list honestly any place where you departed from
-the pattern.
+CHANGE the story:
+- invent a new situation from a different area of life than the model passage;
+- new participants, places and things;
+- new content words throughout: no noun, verb, adjective or adverb from the model
+  passage, and no near-synonyms retelling the same event;
+- if the user gives a topic, the story is about that topic;
+- with several variations, each tells a different story from the others too.
 
-Return ONLY JSON: { "outputs": [ { "text", "literalTranslation",
+For each output, first state the story in one English sentence ("scenario"),
+then write the text, with full polytonic accentuation for Greek and classical
+orthography without macrons for Latin. Give a literal English translation, map
+each unit id to the words that realise it, and list every place where the grammar
+or discourse departs from the pattern. A change of content is not a departure.
+
+Return ONLY JSON: { "outputs": [ { "scenario", "text", "literalTranslation",
 "unitMapping": [ { "unitId", "text" } ], "deviations": [] } ] }
 ```
+
+The skeleton is sent without the slots' `exampleText`, and generation runs at a higher temperature than analysis; the repair request does not.
 
 ### 8.5 Error handling
 
