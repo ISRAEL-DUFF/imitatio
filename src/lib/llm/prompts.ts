@@ -31,6 +31,13 @@ that text generated from it is recognisably the same structure: list units in
 surface order, slots in surface order within each unit, and state in
 "invariants" what must be kept and in "freeSlots" what may change.
 
+The pattern will be used to write new texts that tell a different story in the
+same syntax and discourse. So state "invariants" in terms of grammar and
+discourse only (constructions, moods and tenses, word order, connectives,
+information structure), never in terms of vocabulary or subject matter; and let
+"freeSlots" say that the situation, the participants and the content words are
+free.
+
 Return ONLY a JSON object with the keys "notes" and "skeleton", matching the
 schema below. No prose, no code fences.
 

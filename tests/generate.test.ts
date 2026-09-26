@@ -1,15 +1,15 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { checkGeneration } from '../src/lib/checks.ts';
+import { checkGeneration, reusedWords } from '../src/lib/checks.ts';
 import { ImitatioDB } from '../src/lib/db/db.ts';
 import { deleteOutput, saveGeneration, sortOutputs, toggleStar } from '../src/lib/db/generations.ts';
-import { EXAMPLE_SKELETON } from '../src/lib/llm/example.ts';
-import { generate, generationUserPrompt, parseGeneration } from '../src/lib/llm/generate.ts';
+import { EXAMPLE_PASSAGE, EXAMPLE_SKELETON } from '../src/lib/llm/example.ts';
+import { generate, generationSystemPrompt, generationUserPrompt, parseGeneration } from '../src/lib/llm/generate.ts';
 import type { TaskRequest } from '../src/lib/llm/index.ts';
 import { FormatError } from '../src/lib/llm/structured.ts';
 import type { PatternSkeleton } from '../src/types/index.ts';
-import { CLEAN, MISSING_DE, REPLY, WITH_DEVIATION } from './fixtures/generation.ts';
+import { CLONE, MISSING_DE, NEW_STORY, REPLY, WITH_DEVIATION } from './fixtures/generation.ts';
 
 const SKELETON = structuredClone(EXAMPLE_SKELETON) as unknown as PatternSkeleton;
 const REQUEST = { topic: 'a merchant arriving in Corinth', constraints: 'use daughters', variations: 3 };
@@ -28,26 +28,52 @@ function scripted(...replies: string[]) {
 }
 
 describe('generate', () => {
-  test('the prompt carries the skeleton, topic, constraints and count', () => {
+  test('the prompt carries the pattern, topic, constraints and count', () => {
     const p = generationUserPrompt(SKELETON, REQUEST);
     assert.match(p, /^Language: grc \(Greek, Attic\)$/m);
-    assert.match(p, /^Variations: 3/m);
+    assert.match(p, /^Variations: 3 \(3 different stories, each also different from the model passage\)$/m);
     assert.match(p, /^Topic: a merchant arriving in Corinth$/m);
     assert.match(p, /^Constraints: use daughters$/m);
-    assert.ok(p.includes(JSON.stringify(SKELETON)));
+    assert.match(p, /"construction":"men_de_antithesis"/);
+    assert.match(p, /"specialUse":"historic_present"/);
     const bare = generationUserPrompt(SKELETON, { variations: 1 });
-    assert.match(bare, /^Topic: your choice/m);
+    assert.match(bare, /^Variations: 1$/m);
+    assert.match(bare, /^Topic: your choice, from a different area of life/m);
     assert.match(bare, /^Constraints: none$/m);
   });
 
-  test('outputs are labelled as compositions, unstarred and normalised', async () => {
-    const decomposed = { outputs: [{ ...CLEAN, text: CLEAN.text.normalize('NFD') }] };
+  test('the source’s own words are never sent', () => {
+    const p = generationUserPrompt(SKELETON, REQUEST);
+    assert.doesNotMatch(p, /exampleText/);
+    for (const word of ['Δαρείου', 'Παρυσάτιδος', 'γίγνονται', 'παῖδες', 'Ἀρταξέρξης', 'Κῦρος']) {
+      assert.ok(!p.includes(word), word);
+    }
+  });
+
+  test('the system prompt asks for the same pattern and a different story', () => {
+    const p = generationSystemPrompt();
+    assert.match(p, /same syntax and\s+discourse structure/);
+    assert.match(p, /completely different story/);
+    assert.match(p, /no noun, verb, adjective or adverb from the model/);
+    assert.match(p, /A change of content is not a departure/);
+  });
+
+  test('the first call is creative, the repair call is not', async () => {
+    const { complete, calls } = scripted('{"outputs": []}', JSON.stringify(REPLY));
+    await generate(SKELETON, REQUEST, { complete });
+    assert.equal(calls[0].temperature, 0.9);
+    assert.equal(calls[1].temperature, undefined);
+  });
+
+  test('outputs keep their story and are labelled, unstarred and normalised', async () => {
+    const decomposed = { outputs: [{ ...NEW_STORY, text: NEW_STORY.text.normalize('NFD') }] };
     const { complete, calls } = scripted(JSON.stringify(decomposed));
     const r = await generate(SKELETON, { variations: 1 }, { complete });
     assert.equal(calls[0].json, true);
     assert.equal(r.model, 'google/gemini-3.1-flash-lite');
     assert.equal(r.outputs.length, 1);
-    assert.equal(r.outputs[0].text, CLEAN.text);
+    assert.equal(r.outputs[0].text, NEW_STORY.text);
+    assert.equal(r.outputs[0].scenario, NEW_STORY.scenario);
     assert.equal(r.outputs[0].label, 'composition');
     assert.equal(r.outputs[0].starred, false);
   });
@@ -67,25 +93,46 @@ describe('generate', () => {
     assert.equal(err.raw, 'still nope');
   });
 
-  test('parseGeneration rejects an empty text', () => {
-    const r = parseGeneration(JSON.stringify({ outputs: [{ ...CLEAN, text: '' }] }));
-    assert.equal(r.ok, false);
+  test('parseGeneration rejects an empty text or a missing story', () => {
+    assert.equal(parseGeneration(JSON.stringify({ outputs: [{ ...NEW_STORY, text: '' }] })).ok, false);
+    const { scenario: _, ...noStory } = NEW_STORY;
+    assert.equal(parseGeneration(JSON.stringify({ outputs: [noStory] })).ok, false);
   });
 });
 
 describe('checkGeneration', () => {
-  const check = (o: typeof CLEAN) => checkGeneration(o.text, o.unitMapping, SKELETON, 'grc');
+  const check = (o: typeof NEW_STORY) => checkGeneration(o.text, o.unitMapping, SKELETON, 'grc', EXAMPLE_PASSAGE);
 
-  test('a faithful composition is clean, with connectives matched ignoring accents', () => {
+  test('a new story in the same pattern is clean, with connectives matched ignoring accents', () => {
     // The skeleton lists μέν / δέ (acute); the text has μὲν / δὲ (grave).
-    assert.deepEqual(check(CLEAN), []);
-    assert.deepEqual(check(WITH_DEVIATION), []); // declared deviations are not check failures
+    assert.deepEqual(check(NEW_STORY), []); // declared deviations are not check failures
+    assert.deepEqual(check(WITH_DEVIATION), []); // one shared content word is tolerated
+  });
+
+  test('the source with the names swapped is flagged as reused vocabulary', () => {
+    assert.deepEqual(check(CLONE).map((w) => w.message), [
+      'Reuses the source’s vocabulary (γίγνονται, παῖδες): this may be the same story retold.',
+    ]);
+  });
+
+  test('function words, numerals and the pattern’s connectives are not reuse', () => {
+    const { reused, contentWords } = reusedWords(NEW_STORY.text, EXAMPLE_PASSAGE, SKELETON, 'grc');
+    assert.deepEqual(reused, []); // shares δύο, μὲν, δὲ and ἡ-type words only
+    assert.equal(contentWords, 7);
+  });
+
+  test('without a source there is no reuse check', () => {
+    assert.deepEqual(checkGeneration(CLONE.text, CLONE.unitMapping, SKELETON, 'grc'), []);
   });
 
   test('a missing connective and a mapping not in the text are both flagged', () => {
     assert.deepEqual(
       check(MISSING_DE).map((w) => w.message),
-      ['U3: “νεώτερος δὲ Γλαύκων” is not in the generated text.', 'U3: the connective “δέ” is missing.'],
+      [
+        'U3: “νεώτερος δὲ Γλαύκων” is not in the generated text.',
+        'U3: the connective “δέ” is missing.',
+        'Reuses the source’s vocabulary (γίγνονται, παῖδες, πρεσβύτερος, νεώτερος): this may be the same story retold.',
+      ],
     );
   });
 
@@ -100,7 +147,7 @@ describe('checkGeneration', () => {
       { unitId: 'U1', text: 'Κλεάρχου καὶ Μυρρίνης γίγνονται παῖδες δύο' },
       { unitId: 'U9', text: 'σοφώτερος μὲν Δίων' },
     ];
-    const w = checkGeneration(CLEAN.text, mapping, SKELETON, 'grc').map((x) => x.message);
+    const w = checkGeneration(CLONE.text, mapping, SKELETON, 'grc').map((x) => x.message);
     assert.deepEqual(w, [
       'The mapping names U9, which is not a unit of this pattern.',
       'U2 has no words mapped to it.',
@@ -142,7 +189,7 @@ describe('generations repository', () => {
 
   test('newer generations sort before older ones', () => {
     const base = { entryId: 'e', request: { variations: 1 }, model: 'm' };
-    const out = { ...CLEAN, label: 'composition' as const, starred: false };
+    const out = { ...NEW_STORY, label: 'composition' as const, starred: false };
     const old = { ...base, id: 'old', createdAt: 1, outputs: [out] };
     const recent = { ...base, id: 'new', createdAt: 2, outputs: [out] };
     assert.deepEqual(sortOutputs([old, recent]).map((r) => r.generation.id), ['new', 'old']);
@@ -151,7 +198,7 @@ describe('generations repository', () => {
   test('deleting the last output removes the generation', async () => {
     const { db, id } = await setup();
     await deleteOutput(id, 1, db);
-    assert.deepEqual((await db.generations.get(id))!.outputs.map((o) => o.text), [CLEAN.text, MISSING_DE.text]);
+    assert.deepEqual((await db.generations.get(id))!.outputs.map((o) => o.text), [NEW_STORY.text, MISSING_DE.text]);
     await deleteOutput(id, 0, db);
     await deleteOutput(id, 0, db);
     assert.equal(await db.generations.get(id), undefined);

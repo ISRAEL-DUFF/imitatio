@@ -8,7 +8,7 @@ import { saveApiKey } from '../src/lib/db/settings.ts';
 import { buildExport, exportFileName, importNotebook, parseNotebookFile } from '../src/lib/export/notebook.ts';
 import { finalize } from '../src/lib/llm/analyze.ts';
 import { PASSAGE, response } from './fixtures/anabasis.ts';
-import { CLEAN } from './fixtures/generation.ts';
+import { NEW_STORY } from './fixtures/generation.ts';
 
 const INPUT = { language: 'grc' as const, variety: 'attic' as const, level: 'sentence' as const, text: PASSAGE };
 
@@ -19,7 +19,7 @@ async function notebook() {
   const genId = await saveGeneration(
     entryId,
     { variations: 1 },
-    { outputs: [{ ...CLEAN, label: 'composition', starred: false }], model: 'm', repaired: false },
+    { outputs: [{ ...NEW_STORY, label: 'composition', starred: false }], model: 'm', repaired: false },
     db,
   );
   return { db, entryId, genId };

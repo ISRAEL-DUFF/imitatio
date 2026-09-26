@@ -61,12 +61,13 @@ export async function completeStructured<S extends z.ZodType>(opts: {
   system: string;
   user: string;
   maxTokens: number;
+  temperature?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
 }): Promise<{ data: z.output<S>; model: string; repaired: boolean }> {
   const base = { json: true, maxTokens: opts.maxTokens, timeoutMs: opts.timeoutMs, signal: opts.signal };
-
-  const first = await opts.complete({ ...base, system: opts.system, user: opts.user });
+  // Only the first call gets the temperature: the repair call reformats and should not be creative.
+  const first = await opts.complete({ ...base, temperature: opts.temperature, system: opts.system, user: opts.user });
   if (first.finishReason === 'length') throw new FormatError(first.text, 'Hit the output token limit.', true);
   const parsed = parseWith(opts.schema, first.text);
   if (parsed.ok) return { data: parsed.data, model: first.model, repaired: false };

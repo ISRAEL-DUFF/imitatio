@@ -11,6 +11,7 @@ export function OutputCard({
   output,
   skeleton,
   language,
+  source,
   heading,
   onStar,
   onDelete,
@@ -18,14 +19,16 @@ export function OutputCard({
   output: GeneratedText;
   skeleton: PatternSkeleton;
   language: Language;
+  /** The source passage, for the vocabulary-reuse check. */
+  source: string;
   heading?: React.ReactNode;
   onStar?: () => void;
   onDelete?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const warnings = useMemo(
-    () => checkGeneration(output.text, output.unitMapping, skeleton, language),
-    [output, skeleton, language],
+    () => checkGeneration(output.text, output.unitMapping, skeleton, language, source),
+    [output, skeleton, language, source],
   );
   const segments = useMemo(() => output.unitMapping.map((m) => ({ unitId: m.unitId, quote: m.text })), [output]);
 
@@ -48,6 +51,12 @@ export function OutputCard({
         {heading}
       </header>
 
+      {output.scenario && (
+        <p className="text-sm">
+          <span className="text-xs uppercase tracking-wide text-muted">Story </span>
+          {output.scenario}
+        </p>
+      )}
       <MappedText text={output.text} segments={segments} skeleton={skeleton} language={language} />
       <p className="text-sm">
         <span className="text-xs uppercase tracking-wide text-muted">Literal </span>
@@ -77,7 +86,9 @@ export function OutputCard({
           </ul>
         </div>
       ) : (
-        <p className="text-xs text-muted">All checks passed: every unit is mapped and every connective is present.</p>
+        <p className="text-xs text-muted">
+          All checks passed: every unit is mapped, every connective is present, and the vocabulary is new.
+        </p>
       )}
 
       {(onStar || onDelete) && (
