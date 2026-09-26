@@ -49,7 +49,9 @@ export function EntryPage() {
       tagSuggestions={allTags}
       userEdited={entry.userEdited}
       onEdit={(patch) => updateEntry(entry.id, patch)}
-      generations={<GenerationsList entryId={entry.id} skeleton={entry.skeleton} language={entry.language} />}
+      generations={
+        <GenerationsList entryId={entry.id} skeleton={entry.skeleton} language={entry.language} source={passage.text} />
+      }
       actions={
         <>
           <Link

@@ -115,14 +115,14 @@ export const EXAMPLE_SKELETON = {
     register: 'plain historical narrative',
   },
   invariants: [
-    'Genitive of origin fronted before the verb',
-    'Historic present of a verb of coming-to-be or existing',
-    'Numeral in the subject matching the number of appositive members',
-    'Appositive members in the shape [adjective] μέν [name], [adjective] δέ [name], with no verb',
+    'A genitive phrase fronted before the verb as the topic that frames the sentence',
+    'A historic present, third person plural, with its subject after it as the focus',
+    'A numeral in the subject announcing how many members follow',
+    'One appositive member per item announced, each [attribute] μέν / [attribute] δέ + [noun], with no verb of its own',
   ],
   freeSlots: [
-    'Names of the parents and children',
-    'The choice of verb within the same semantic class',
-    'The contrasting adjectives (e.g. older/younger, wiser/bolder)',
+    'The situation and everything in it: participants, places and things',
+    'The verb, provided it is a historic present that fits the fronted genitive and the subject',
+    'The attributes that set the members against each other (any contrasting pair)',
   ],
 } as const;
